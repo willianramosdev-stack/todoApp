@@ -19,7 +19,7 @@ const LoginSchema = z.object({
 
 export const authController = async (fastify: FastifyInstance) => {
 
-    fastify.post<{ Body: z.infer<typeof Registerschema> }>('/register', async (request, reply) => {
+    fastify.post<{ Body: z.infer<typeof Registerschema> }>('/api/auth/register', async (request, reply) => {
         const payload = Registerschema.parse(request.body);
         const hashedPassword = await bcrypt.hash(payload.password, 10)
         const user = await prisma.user.create({
@@ -50,7 +50,7 @@ export const authController = async (fastify: FastifyInstance) => {
     }
     );
 
-    fastify.post<{ Body: z.infer<typeof LoginSchema> }>('/login', async (request, reply) => {
+    fastify.post<{ Body: z.infer<typeof LoginSchema> }>('/api/auth/login', async (request, reply) => {
         const payload = LoginSchema.parse(request.body);
         const user = await prisma.user.findUnique({
             where: {
@@ -78,7 +78,7 @@ export const authController = async (fastify: FastifyInstance) => {
     });
 
 
-    fastify.post("/refresh", async (request, reply) => {
+    fastify.post("/api/auth/refresh", async (request, reply) => {
         const refreshToken = request.cookies.refreshToken;
 
         if (!refreshToken) {
@@ -103,7 +103,7 @@ export const authController = async (fastify: FastifyInstance) => {
         }
     });
 
-    
+
 
     
 

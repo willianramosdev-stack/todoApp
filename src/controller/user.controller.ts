@@ -18,7 +18,7 @@ export const UpdatePasswordSchema = z.object({
 
 export const userController = async (fastify: FastifyInstance) => {
 
-    fastify.get('/me', { preHandler: authenticate }, async (request, reply) => {
+    fastify.get('/api/users/me', { preHandler: authenticate }, async (request, reply) => {
         const user = await prisma.user.findFirst({
             where: { id: request.user.userId },
         })
@@ -33,7 +33,7 @@ export const userController = async (fastify: FastifyInstance) => {
         })
     })
 
-    fastify.put<{ Body: z.infer<typeof UpdateUserSchema> }>('/me', { preHandler: authenticate }, async (request, reply) => {
+    fastify.put<{ Body: z.infer<typeof UpdateUserSchema> }>('/api/users/me', { preHandler: authenticate }, async (request, reply) => {
         const user = await prisma.user.findFirst({
             where: { id: request.user.userId },
         })
@@ -60,7 +60,7 @@ export const userController = async (fastify: FastifyInstance) => {
         })
     })
 
-    fastify.patch<{ Body: z.infer<typeof UpdatePasswordSchema> }>('/me/password', { preHandler: authenticate }, async (request, reply) => {
+    fastify.patch<{ Body: z.infer<typeof UpdatePasswordSchema> }>('/api/users/me/password', { preHandler: authenticate }, async (request, reply) => {
         const user = await prisma.user.findUnique({
             where: { id: request.user.userId },
         })
