@@ -6,7 +6,7 @@ import { userController } from './controller/user.controller.js';
 const fastify = Fastify({ logger: false })
 
 await fastify.register(userController)
-await fastify.register(authController, { prefix: '/api/auth' })
+await fastify.register(authController)
 await fastify.register(cookie, { secret: process.env.COOKIE_SECRET! });
 await fastify.listen({ port: 3000, host: '0.0.0.0' })
 
