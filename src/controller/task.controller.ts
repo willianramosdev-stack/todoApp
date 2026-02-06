@@ -42,6 +42,7 @@ const QuerySchema = z.object({
     priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
     due_date: z.coerce.date().optional(),
     sort: z.enum(["dueDate", "createdAt"]).optional().default("createdAt"),
+    search: z.string().min(1).optional()
 });
 
 export const taskController = async (fastify: FastifyInstance) => {
@@ -66,7 +67,7 @@ export const taskController = async (fastify: FastifyInstance) => {
             const query = QuerySchema.parse(request.query);
 
             const filters: Prisma.TaskWhereInput = {
-                userId: request.user.userId,
+                userId: request.user.userId
             }
             if (query.status) {
                 filters.status = query.status;
@@ -83,7 +84,16 @@ export const taskController = async (fastify: FastifyInstance) => {
                     [query.sort]: 'asc'
                 }
             });
-            reply.status(200).send(getAllTask);
+            if (query.search) {
+                const searchText = query.search;
+                const filteredTasks = getAllTask.filter(task =>
+                    task.title.includes(searchText) ||
+                    task.description?.includes(searchText)
+                );
+                reply.status(200).send(filteredTasks);
+            } else {
+                reply.status(200).send(getAllTask);
+            }
         } catch (error) {
             reply.status(500).send({ error: "Tasks not found!" });
         }
@@ -223,10 +233,6 @@ export const taskController = async (fastify: FastifyInstance) => {
             reply.status(500).send({ error: "Failed to delete task" });
         }
     });
-
-    // GET / api / tasks / overdue - Listar tasks vencidas
-    // GET / api / tasks / today - Tasks com vencimento hoje
-    // GET / api / tasks / upcoming - Tasks próximas do vencimento
 
     fastify.get('/api/tasks/overdue', { preHandler: authenticate }, async (request, reply) => {
         try {
