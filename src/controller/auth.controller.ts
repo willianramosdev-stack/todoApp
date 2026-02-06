@@ -224,7 +224,7 @@ export const authController = async (fastify: FastifyInstance) => {
     fastify.post(
         "/api/auth/logout",
         { preHandler: authenticate },
-        async (_, reply) => {
+        async (request, reply) => {
             reply
                 .clearCookie("accessToken", { path: "/" })
                 .clearCookie("refreshToken", { path: "/api/auth/refresh" })
