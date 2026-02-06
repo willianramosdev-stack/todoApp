@@ -9,31 +9,18 @@ declare module "fastify" {
     }
 }
 
-function isJwtPayload(value: unknown): value is JwtPayload {
-    return typeof value === "object" && value !== null;
-}
+type TokenPayload = { user_id: string };
 
-export async function authenticate(
-    request: FastifyRequest,
-    reply: FastifyReply
-) {
-    const authHeader = request.headers.authorization;
-
-    if (!authHeader?.startsWith("Bearer ")) {
-        return reply.code(401).send({ error: "Unauthorized" });
-    }
-
-    const token = authHeader.slice("Bearer ".length).trim();
+export async function authenticate(request: FastifyRequest, reply: FastifyReply) {
+    const token = request.cookies?.accessToken;
+    if (!token) return reply.code(401).send({ error: "Unauthorized" });
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-
-        if (!isJwtPayload(decoded) || typeof decoded.sub !== "string") {
-            return reply.code(401).send({ error: "Unauthorized" });
-        }
-
-        request.user = { userId: decoded.sub };
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
+        request.user = { userId: decoded.user_id };
     } catch {
         return reply.code(401).send({ error: "Unauthorized" });
     }
 }
+
+

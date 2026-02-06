@@ -88,4 +88,5 @@ export const userController = async (fastify: FastifyInstance) => {
             password: undefined
         })
     })
+    
 };

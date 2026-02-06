@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Resend } from 'resend';
 import { randomInt } from 'crypto';
+import { authenticate } from "../utils/authenticate.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
@@ -47,7 +48,14 @@ export const authController = async (fastify: FastifyInstance) => {
                 secure: process.env.NODE_ENV === "production",
                 sameSite: "strict",
                 path: "/api/auth/refresh",
-                maxAge: 60 * 60 * 24 * 7 // 7 dias
+                maxAge: 60 * 60 * 24 * 7
+            })
+            .setCookie("accessToken", accessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                path: "/",
+                maxAge: 8 * 3600
             })
             .status(201)
             .send({
@@ -55,7 +63,6 @@ export const authController = async (fastify: FastifyInstance) => {
                     ...user,
                     password: undefined
                 },
-                accessToken
             });
 
     }
@@ -85,7 +92,14 @@ export const authController = async (fastify: FastifyInstance) => {
                 path: "/api/auth/refresh",
                 maxAge: 60 * 60 * 24 * 7
             })
-            .send({ accessToken });
+            .setCookie("accessToken", accessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                path: "/",
+                maxAge: 8 * 3600
+            })
+            .send({ message: "Login successful" });
     });
 
 
@@ -108,7 +122,22 @@ export const authController = async (fastify: FastifyInstance) => {
                 { expiresIn: "8h" }
             );
 
-            return reply.send({ accessToken: newAccessToken });
+            return reply
+                .setCookie("refreshToken", refreshToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "strict",
+                    path: "/api/auth/refresh",
+                    maxAge: 60 * 60 * 24 * 7
+                })
+                .setCookie("accessToken", newAccessToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "strict",
+                    path: "",
+                    maxAge: 8 * 3600
+                })
+                .send({ message: "Access token refreshed" });
         } catch {
             return reply.status(401).send({ error: "Invalid refresh token" });
         }
@@ -192,9 +221,16 @@ export const authController = async (fastify: FastifyInstance) => {
         return reply.status(200).send({ message: "Password reset successful!" });
     });
 
-
-
-
+    fastify.post(
+        "/api/auth/logout",
+        { preHandler: authenticate },
+        async (_, reply) => {
+            reply
+                .clearCookie("accessToken", { path: "/" })
+                .clearCookie("refreshToken", { path: "/api/auth/refresh" })
+                .send({ message: "Logged out" });
+        }
+    );
 
 
 };
