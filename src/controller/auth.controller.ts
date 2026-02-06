@@ -34,6 +34,9 @@ export const authController = async (fastify: FastifyInstance) => {
     fastify.post<{ Body: z.infer<typeof Registerschema> }>('/api/auth/register', async (request, reply) => {
         const payload = Registerschema.parse(request.body);
         const hashedPassword = await bcrypt.hash(payload.password, 10)
+        if (await prisma.user.findUnique({ where: { email: payload.email } })) {
+            return reply.status(409).send({ error: "Email already in use" });
+        }
         const user = await prisma.user.create({
             data: {
                 ...payload,
