@@ -3,11 +3,11 @@ import z from "zod";
 import { prisma } from "../client.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { Resend } from 'resend';
 import { randomInt } from 'crypto';
 import { authenticate } from "../utils/authenticate.js";
+import { sendEmail } from "../utils/resend.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+
 
 const Registerschema = z.object({
     fullName: z.string().min(3),
@@ -168,19 +168,12 @@ export const authController = async (fastify: FastifyInstance) => {
             }
         });
 
-        (async function () {
-            const { data, error } = await resend.emails.send({
-                from: 'Acme <onboarding@resend.dev>',
-                to: [user.email],
-                subject: 'Recovery Code',
-                html: `<strong>Recovery Code: ${otp} expires in 15 minutes!</strong>`,
-            });
-
-            if (error) {
-                return console.error({ error });
-            }
-        })();
-        return reply.status(201).send({ message: "OTP sent to email!" });
+        try {
+            await sendEmail(user, otp);
+            return reply.status(201).send({ message: "OTP sent to email!" });
+        } catch (error) {
+            return reply.status(500).send({ error: "Failed to send email" });
+        }
 
     })
 
