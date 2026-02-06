@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { authenticate } from "../utils/authenticate.js";
 import type { Prisma } from "../generated/prisma/client.js";
+import { request } from "node:http";
 
 export const TaskStatusSchema = z.enum([
     "PENDING",
@@ -20,7 +21,7 @@ export const TaskPrioritySchema = z.enum([
 ]);
 
 const UpdateTaskStatusSchema = z.object({
-  status: TaskStatusSchema
+    status: TaskStatusSchema
 });
 
 export const CreateTaskSchema = z.object({
@@ -79,7 +80,7 @@ export const taskController = async (fastify: FastifyInstance) => {
             const getAllTask = await prisma.task.findMany({
                 where: filters,
                 orderBy: {
-                    [query.sort]: 'desc'
+                    [query.sort]: 'asc'
                 }
             });
             reply.status(200).send(getAllTask);
@@ -204,7 +205,104 @@ export const taskController = async (fastify: FastifyInstance) => {
     });
 
 
+    fastify.delete<{ Params: { id: string } }>('/api/tasks/:id', { preHandler: authenticate }, async (request, reply) => {
+        const { id } = request.params;
+        try {
+            const task = await prisma.task.findUnique({
+                where: { id: Number(id) }
+            });
+            if (!task) {
+                return reply.status(404).send({ error: "Task not found" });
+            }
+            await prisma.task.delete({
+                where: { id: Number(id) }
+            });
 
+            reply.status(200).send({ message: "Task deleted successfully" });
+        } catch (error) {
+            reply.status(500).send({ error: "Failed to delete task" });
+        }
+    });
 
+    // GET / api / tasks / overdue - Listar tasks vencidas
+    // GET / api / tasks / today - Tasks com vencimento hoje
+    // GET / api / tasks / upcoming - Tasks próximas do vencimento
+
+    fastify.get('/api/tasks/overdue', { preHandler: authenticate }, async (request, reply) => {
+        try {
+
+            const tasks = await prisma.task.findMany({
+                where: {
+                    userId: request.user.userId,
+                    dueDate: {
+                        lt: new Date() // lt quando data < que atual
+                    },
+                    status: {
+                        not: "DONE"
+                    }
+                }
+            });
+            reply.status(200).send(tasks);
+        } catch (error) {
+            reply.status(500).send({ error: "Failed to retrieve overdue tasks" });
+        }
+    });
+    fastify.get('/api/tasks/today', { preHandler: authenticate }, async (request, reply) => {
+        try {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            const tomorrow = new Date(today)
+            tomorrow.setDate(today.getDate() + 1)
+
+            const tasks = await prisma.task.findMany({
+                where: {
+                    userId: request.user.userId,
+                    dueDate: {
+                        gte: today,
+                        lt: tomorrow
+                    },
+                    status: {
+                        not: "DONE"
+                    }
+                }
+            })
+            if (!tasks) {
+                return reply.status(404).send({ error: "No tasks for today" });
+            }
+            reply.status(200).send(tasks);
+        } catch (error) {
+            reply.status(500).send({ error: "Failed to retrieve today's tasks" });
+        }
+    });
+
+    fastify.get('/api/tasks/upcoming', { preHandler: authenticate }, async (request, reply) => {
+        try {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            const nextDays = new Date(today)
+            nextDays.setDate(today.getDate() + 5)
+
+            const tasks = await prisma.task.findMany({
+                where: {
+                    userId: request.user.userId,
+                    dueDate: {
+                        gte: today,
+                        lt: nextDays
+                    },
+                    status: {
+                        not: "DONE"
+                    }
+                }
+            })
+            if (!tasks) {
+                return reply.status(404).send({ error: "No upcoming tasks" });
+            }
+            reply.status(200).send(tasks);
+        } catch (error) {
+            reply.status(500).send({ error: "Failed to retrieve upcoming tasks" });
+        }
+    });
 
 }
