@@ -1,11 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import z, { number } from "zod";
 import { prisma } from "../client.js";
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import { authenticate } from "../utils/authenticate.js";
 import type { Prisma } from "../generated/prisma/client.js";
-import { request } from "node:http";
+
 
 export const TaskStatusSchema = z.enum([
     "PENDING",

@@ -34,76 +34,84 @@ export const authController = async (fastify: FastifyInstance) => {
     fastify.post<{ Body: z.infer<typeof Registerschema> }>('/api/auth/register', async (request, reply) => {
         const payload = Registerschema.parse(request.body);
         const hashedPassword = await bcrypt.hash(payload.password, 10)
-        if (await prisma.user.findUnique({ where: { email: payload.email } })) {
-            return reply.status(409).send({ error: "Email already in use" });
-        }
-        const user = await prisma.user.create({
-            data: {
-                ...payload,
-                password: hashedPassword
+        try {
+            if (await prisma.user.findUnique({ where: { email: payload.email } })) {
+                return reply.status(409).send({ error: "Email already in use" });
             }
-        });
-        const accessToken = jwt.sign({ user_id: user.id }, process.env.JWT_SECRET!, { expiresIn: '8h' });
-        const refreshToken = jwt.sign({ user_id: user.id }, process.env.JWT_REFRESH_SECRET!, { expiresIn: '7d' });
-        reply
-            .setCookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                path: "/api/auth/refresh",
-                maxAge: 60 * 60 * 24 * 7
-            })
-            .setCookie("accessToken", accessToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                path: "/",
-                maxAge: 8 * 3600
-            })
-            .status(201)
-            .send({
-                user: {
-                    ...user,
-                    password: undefined
-                },
+            const user = await prisma.user.create({
+                data: {
+                    ...payload,
+                    password: hashedPassword
+                }
             });
+            const accessToken = jwt.sign({ user_id: user.id }, process.env.JWT_SECRET!, { expiresIn: '8h' });
+            const refreshToken = jwt.sign({ user_id: user.id }, process.env.JWT_REFRESH_SECRET!, { expiresIn: '7d' });
+            reply
+                .setCookie("refreshToken", refreshToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "strict",
+                    path: "/api/auth/refresh",
+                    maxAge: 60 * 60 * 24 * 7
+                })
+                .setCookie("accessToken", accessToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "strict",
+                    path: "/",
+                    maxAge: 8 * 3600
+                })
+                .status(201)
+                .send({
+                    user: {
+                        ...user,
+                        password: undefined
+                    },
+                });
 
+        } catch (error) {
+            return reply.status(500).send({ error: "Internal server error" });
+        }
     }
     );
 
     fastify.post<{ Body: z.infer<typeof LoginSchema> }>('/api/auth/login', async (request, reply) => {
         const payload = LoginSchema.parse(request.body);
-        const user = await prisma.user.findUnique({
-            where: {
-                email: payload.email
+        try {
+            const user = await prisma.user.findUnique({
+                where: {
+                    email: payload.email
+                }
+            });
+            if (!user) {
+                return reply.status(401).send({ error: "Invalid email or password" });
             }
-        });
-        if (!user) {
-            return reply.status(401).send({ error: "Invalid email or password" });
+            const passValidate = await bcrypt.compare(payload.password, user.password);
+            if (!passValidate) {
+                return reply.status(401).send({ error: "Invalid email or password" });
+            }
+            const accessToken = jwt.sign({ user_id: user.id }, process.env.JWT_SECRET!, { expiresIn: '8h' });
+            const refreshToken = jwt.sign({ user_id: user.id }, process.env.JWT_REFRESH_SECRET!, { expiresIn: '7d' });
+            reply
+                .setCookie("refreshToken", refreshToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "strict",
+                    path: "/api/auth/refresh",
+                    maxAge: 60 * 60 * 24 * 7
+                })
+                .setCookie("accessToken", accessToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "strict",
+                    path: "/",
+                    maxAge: 8 * 3600
+                })
+                .status(201)
+                .send({ message: "Login successful" });
+        } catch (error) {
+            return reply.status(500).send({ error: "Internal server error" });
         }
-        const passValidate = await bcrypt.compare(payload.password, user.password);
-        if (!passValidate) {
-            return reply.status(401).send({ error: "Invalid email or password" });
-        }
-        const accessToken = jwt.sign({ user_id: user.id }, process.env.JWT_SECRET!, { expiresIn: '8h' });
-        const refreshToken = jwt.sign({ user_id: user.id }, process.env.JWT_REFRESH_SECRET!, { expiresIn: '7d' });
-        reply
-            .setCookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                path: "/api/auth/refresh",
-                maxAge: 60 * 60 * 24 * 7
-            })
-            .setCookie("accessToken", accessToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                path: "/",
-                maxAge: 8 * 3600
-            })
-            .status(201)
-            .send({ message: "Login successful" });
     });
 
 
@@ -150,73 +158,80 @@ export const authController = async (fastify: FastifyInstance) => {
 
     fastify.post<{ Body: z.infer<typeof ForgotPasswordSchema> }>('/api/auth/forgot-password', async (request, reply) => {
         const payload = ForgotPasswordSchema.parse(request.body);
-        const user = await prisma.user.findUnique({
-            where: {
-                email: payload.email
-            }
-        });
-        if (!user) {
-            return reply.status(404).send({ error: "Email invalid!" });
-        }
-        const otp = randomInt(100000, 1000000);
-
-        await prisma.passwordResetToken.create({
-            data: {
-                userId: user.id,
-                token: otp,
-                expires_At: new Date(Date.now() + 15 * 60 * 1000)
-            }
-        });
-
         try {
-            await sendEmail(user, otp);
-            return reply.status(201).send({ message: "OTP sent to email!" });
-        } catch (error) {
-            return reply.status(500).send({ error: "Failed to send email" });
-        }
+            const user = await prisma.user.findUnique({
+                where: {
+                    email: payload.email
+                }
+            });
+            if (!user) {
+                return reply.status(404).send({ error: "Email invalid!" });
+            }
+            const otp = randomInt(100000, 1000000);
 
+            await prisma.passwordResetToken.create({
+                data: {
+                    userId: user.id,
+                    token: otp,
+                    expires_At: new Date(Date.now() + 15 * 60 * 1000)
+                }
+            });
+
+            try {
+                await sendEmail(user, otp);
+                return reply.status(201).send({ message: "OTP sent to email!" });
+            } catch (error) {
+                return reply.status(500).send({ error: "Failed to send email" });
+            }
+        } catch (error) {
+            return reply.status(500).send({ error: "Internal server error" });
+        }
     })
 
     fastify.post<{ Body: z.infer<typeof ResetPasswordSchema> }>('/api/auth/reset-password', async (request, reply) => {
         const payload = ResetPasswordSchema.parse(request.body);
-        const tokenRecord = await prisma.passwordResetToken.findFirst({
-            where: {
-                token: payload.otp,
-                used: false,
-                expires_At: {
-                    gt: new Date() // gt quando data > que atual
+        try {
+            const tokenRecord = await prisma.passwordResetToken.findFirst({
+                where: {
+                    token: payload.otp,
+                    used: false,
+                    expires_At: {
+                        gt: new Date() // gt quando data > que atual
+                    }
+                },
+                include: {
+                    user: true
                 }
-            },
-            include: {
-                user: true
-            }
-        });
+            });
 
-        if (!tokenRecord) {
-            return reply.status(400).send({ error: "Invalid or expired OTP" });
+            if (!tokenRecord) {
+                return reply.status(400).send({ error: "Invalid or expired OTP" });
+            }
+
+            const hashedPassword = await bcrypt.hash(payload.newPassword, 10);
+
+            await prisma.user.update({
+                where: {
+                    id: tokenRecord.userId
+                },
+                data: {
+                    password: hashedPassword
+                }
+            });
+
+            await prisma.passwordResetToken.update({
+                where: {
+                    id: tokenRecord.id
+                },
+                data: {
+                    used: true
+                }
+            });
+
+            return reply.status(200).send({ message: "Password reset successful!" });
+        } catch (error) {
+            return reply.status(500).send({ error: "Failed to reset password" });
         }
-
-        const hashedPassword = await bcrypt.hash(payload.newPassword, 10);
-
-        await prisma.user.update({
-            where: {
-                id: tokenRecord.userId
-            },
-            data: {
-                password: hashedPassword
-            }
-        });
-
-        await prisma.passwordResetToken.update({
-            where: {
-                id: tokenRecord.id
-            },
-            data: {
-                used: true
-            }
-        });
-
-        return reply.status(200).send({ message: "Password reset successful!" });
     });
 
     fastify.post(

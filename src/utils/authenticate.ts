@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import jwt from "jsonwebtoken";
-import type { JwtPayload } from "jsonwebtoken";
 
 
 declare module "fastify" {
