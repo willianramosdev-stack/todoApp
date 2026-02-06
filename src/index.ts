@@ -1,7 +1,9 @@
+import "dotenv/config";
 import Fastify from 'fastify'
 import cookie from "@fastify/cookie";
 import { authController } from './controller/auth.controller.js'
 import { userController } from './controller/user.controller.js';
+
 
 const fastify = Fastify({ logger: false })
 

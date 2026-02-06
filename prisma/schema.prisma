@@ -19,6 +19,7 @@ enum TaskStatus {
   DONE
   CANCELED
 }
+
 enum TaskPriority {
   LOW
   MEDIUM
@@ -26,28 +27,36 @@ enum TaskPriority {
 }
 
 model User {
-  id           String         @id @default(uuid())
-  fullName     String
-  email        String         @unique
-  age          Int
-  password     String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  tasks        Task[]
+  id        String               @id @default(uuid())
+  fullName  String
+  email     String               @unique
+  age       Int
+  password  String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  tasks     Task[]
+  otps      PasswordResetToken[]
 }
 
-model Task{
-  id          String      @id @default(uuid())
-  userId      String   
-  user        User        @relation(fields: [userId], references: [id])   
+model Task {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
   title       String
   description String?
-  status      TaskStatus  @default(PENDING)
+  status      TaskStatus   @default(PENDING)
   priority    TaskPriority
   dueDate     DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   completedAt DateTime?
-  
 }
 
+model PasswordResetToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  token      Int
+  expires_At DateTime
+  used       Boolean  @default(false)
+}
