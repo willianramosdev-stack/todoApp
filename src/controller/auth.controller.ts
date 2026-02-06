@@ -102,6 +102,7 @@ export const authController = async (fastify: FastifyInstance) => {
                 path: "/",
                 maxAge: 8 * 3600
             })
+            .status(201)
             .send({ message: "Login successful" });
     });
 
@@ -140,6 +141,7 @@ export const authController = async (fastify: FastifyInstance) => {
                     path: "",
                     maxAge: 8 * 3600
                 })
+                .status(200)
                 .send({ message: "Access token refreshed" });
         } catch {
             return reply.status(401).send({ error: "Invalid refresh token" });
@@ -178,7 +180,7 @@ export const authController = async (fastify: FastifyInstance) => {
                 return console.error({ error });
             }
         })();
-        return reply.status(200).send({ message: "OTP sent to email!" });
+        return reply.status(201).send({ message: "OTP sent to email!" });
 
     })
 
